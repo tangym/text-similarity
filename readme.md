@@ -11,9 +11,16 @@ $$
 ```
 {
     "query" : "decf",
-    "document": "abcdefg"
+    "document": "abcdefg",
+    "method": "bm25"        // 可选参数
 }
 ```
+`method`的取值可以是:
+- `"hamming"`: 汉明距离
+- `"levenshtein"`: 编辑距离
+- `"bm25"`: bm25算法的相似性
+- `"jaro"`
+- `"jaro-winkler"`
 
 2. 返回错误信息或相似度
 
@@ -34,5 +41,6 @@ Flask==0.10.1
 Jinja2==2.7.3
 Merkzeug==0.9.6
 python-Levenshtein==0.11.2
+jieba3k==0.35.1
 
 

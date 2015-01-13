@@ -2,6 +2,8 @@
 import json
 import Levenshtein
 from flask import Flask, request
+import jieba
+import cfg
 
 __author__ = 'TYM'
 app = Flask(__name__)
@@ -14,17 +16,17 @@ def score():
         if 'query' not in data or 'document' not in data:
             return '{\"error message\": \"missing argument\"}'
 
-        distance = Levenshtein.distance
+        similarity = convert_distance_to_similarity(Levenshtein.distance)
         if 'method' in data:
-            methods = {'hamming': Levenshtein.hamming,
-                       'levenshtein': Levenshtein.distance,
-                       'jaro': Levenshtein.jaro,
-                       'jaro-winkler': Levenshtein.jaro_winkler}
+            methods = {'hamming': convert_distance_to_similarity(Levenshtein.hamming),
+                       'levenshtein': convert_distance_to_similarity(Levenshtein.distance),
+                       'jaro': convert_distance_to_similarity(Levenshtein.jaro),
+                       'jaro-winkler': convert_distance_to_similarity(Levenshtein.jaro_winkler),
+                       'bm25': bm25}
             if data['method'] in methods:
-                distance = methods[data['method']]
+                similarity = methods[data['method']]
 
-        similarity = 1 / (1 + distance(data['query'], data['document']))
-        return '{\"similarity\": %f}' % similarity
+        return '{\"similarity\": %f}' % similarity(data['query'], data['document'])
 
         # return json.dumps(json.loads(request.data.decode('utf8'))) # request.json if request.json else None
     elif request.method == 'GET':
@@ -41,6 +43,26 @@ def score():
                 - <s>remember to set the content type as 'application/json'</s>
                 - please use utf-8 encoding and double quotes for keys and values if you concatenates strings manually'''
 
+def convert_distance_to_similarity(func):
+    def _decorator(query, document):
+        similarity = 1 / (1 + func(query, document))
+        return similarity
+    return _decorator
+
+def segmentation(s):
+    return list(jieba.cut_for_search(s))
+
+def bm25(query, document):
+    bm25_score = 0
+    seg_doc = segmentation(document)
+    seg_q = segmentation(query)
+    K = cfg.BM25_K1 * (1 - cfg.BM25_B
+        + cfg.BM25_B * len(seg_doc) / cfg.BM25_AVERAGE_DOCUMENT_LENGTH)
+    for seg in seg_q:
+        frequency = len(list(filter(lambda e: e==seg, seg_doc)))
+        # TODO: add weight according to IDF
+        bm25_score += frequency * (cfg.BM25_K1 + 1) / (frequency + K)
+    return bm25_score
 
 if __name__ == '__main__':
     app.run(debug=True)
